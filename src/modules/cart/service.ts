@@ -30,41 +30,13 @@ export const syncCart = async (userId: string, items: { productId: string; quant
 
   // Use a transaction to ensure atomicity
   return await db.transaction(async (tx) => {
-    // 1. Delete items that are NO LONGER in the request items
-    const productIds = items.map(i => i.productId);
-    if (productIds.length > 0) {
-      await tx.delete(cartItems)
-        .where(
-          and(
-            eq(cartItems.cartId, cart.id),
-            not(inArray(cartItems.productId, productIds))
-          )
-        );
-    } else {
-      // If items array is empty, it means we WANT to clear the cart in a SYNC context.
-      // Wait! If it's a "merge" on login, we send an empty list?
-      // No, onLogin fetches the server cart first and merges. So it will send the full merged list.
-      // So if items is empty, we should delete EVERYTHING for this cart.
-      await tx.delete(cartItems).where(eq(cartItems.cartId, cart.id));
-    }
+    // 1. Delete all current items for this cart to ensure absolute consistency
+    await tx.delete(cartItems).where(eq(cartItems.cartId, cart.id));
 
-    // 2. Update/Insert the remaining items
-    for (const item of items) {
-      const existing = await tx.query.cartItems.findFirst({
-        where: and(
-          eq(cartItems.cartId, cart.id),
-          eq(cartItems.productId, item.productId)
-        ),
-      });
-
-      if (existing) {
-        await tx.update(cartItems)
-          .set({ 
-            quantity: item.quantity, 
-            updatedAt: new Date().toISOString() 
-          })
-          .where(eq(cartItems.id, existing.id));
-      } else {
+    // 2. Insert the current items from the frontend
+    if (items.length > 0) {
+      // Perform sequential inserts within transaction or use bulk insert if supported
+      for (const item of items) {
         await tx.insert(cartItems).values({
           cartId: cart.id,
           productId: item.productId,
@@ -73,6 +45,7 @@ export const syncCart = async (userId: string, items: { productId: string; quant
       }
     }
 
+    // 3. Return the fresh state
     return await tx.query.cartItems.findMany({
       where: eq(cartItems.cartId, cart.id),
       with: {
