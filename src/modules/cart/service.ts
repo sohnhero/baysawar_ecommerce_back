@@ -16,13 +16,16 @@ export const getOrCreateCart = async (userId: string) => {
 };
 
 export const getCart = async (userId: string) => {
+  console.log(`[CartService] getCart called for user: ${userId}`);
   const cart = await getOrCreateCart(userId);
-  return await db.query.cartItems.findMany({
+  const items = await db.query.cartItems.findMany({
     where: eq(cartItems.cartId, cart.id),
     with: {
       product: true,
     },
   });
+  console.log(`[CartService] getCart returning ${items.length} items for user: ${userId}`);
+  return items;
 };
 
 export const syncCart = async (userId: string, items: { productId: string; quantity: number }[]) => {
