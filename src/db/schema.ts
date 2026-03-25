@@ -185,6 +185,41 @@ export const flashSales = pgTable("flash_sales", {
 		}).onDelete("cascade"),
 ]);
 
+export const carts = pgTable("carts", {
+	id: uuid("id").defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id").notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "carts_user_id_users_id_fk"
+	}).onDelete("cascade"),
+	unique("carts_user_id_unique").on(table.userId),
+]);
+
+export const cartItems = pgTable("cart_items", {
+	id: uuid("id").defaultRandom().primaryKey().notNull(),
+	cartId: uuid("cart_id").notNull(),
+	productId: uuid("product_id").notNull(),
+	quantity: integer("quantity").notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+		columns: [table.cartId],
+		foreignColumns: [carts.id],
+		name: "cart_items_cart_id_carts_id_fk"
+	}).onDelete("cascade"),
+	foreignKey({
+		columns: [table.productId],
+		foreignColumns: [products.id],
+		name: "cart_items_product_id_products_id_fk"
+	}).onDelete("cascade"),
+	unique("cart_items_cart_product_unique").on(table.cartId, table.productId),
+]);
+
 export const flashSaleCampaignsRelations = relations(flashSaleCampaigns, ({ many }) => ({
 	items: many(flashSales),
 }));
@@ -215,6 +250,7 @@ export const productsRelations = relations(products, ({ one, many }) => ({
 		references: [artisans.id],
 	}),
 	orderItems: many(orderItems),
+	cartItems: many(cartItems),
 	reviews: many(reviews),
 }));
 
@@ -263,6 +299,25 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
 	}),
 	product: one(products, {
 		fields: [orderItems.productId],
+		references: [products.id],
+	}),
+}));
+
+export const cartsRelations = relations(carts, ({ one, many }) => ({
+	user: one(users, {
+		fields: [carts.userId],
+		references: [users.id],
+	}),
+	items: many(cartItems),
+}));
+
+export const cartItemsRelations = relations(cartItems, ({ one }) => ({
+	cart: one(carts, {
+		fields: [cartItems.cartId],
+		references: [carts.id],
+	}),
+	product: one(products, {
+		fields: [cartItems.productId],
 		references: [products.id],
 	}),
 }));
