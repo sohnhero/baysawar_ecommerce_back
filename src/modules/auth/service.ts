@@ -7,7 +7,7 @@ import { users } from "../../db/schema";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
 
 export const register = async (data: any) => {
-  const { email, password, name } = data;
+  const { email, password, name, phone, address } = data;
 
   const existingUser = await db.query.users.findFirst({
     where: eq(users.email, email),
@@ -23,6 +23,8 @@ export const register = async (data: any) => {
     email,
     password: hashedPassword,
     name,
+    phone,
+    address,
     role: "customer",
   }).returning();
 
