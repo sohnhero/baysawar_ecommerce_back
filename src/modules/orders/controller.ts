@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { db } from "../../lib/db";
 import { orders, orderItems, products } from "../../db/schema";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 
 export const createOrder = async (req: Request, res: Response) => {
   try {
@@ -112,5 +112,51 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
     res.json(result[0]);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+export const cancelOrder = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const { id } = req.params;
+
+    if (typeof id !== 'string') {
+      return res.status(400).json({ error: "Invalid ID" });
+    }
+
+    const result = await db.transaction(async (tx) => {
+      // 1. Fetch the order to verify ownership and status
+      const order = await tx.query.orders.findFirst({
+        where: and(eq(orders.id, id), eq(orders.userId, userId)),
+        with: { items: true }
+      });
+
+      if (!order) {
+        throw new Error("Order not found or unauthorized");
+      }
+
+      if (order.status !== "pending") {
+        throw new Error("Only pending orders can be cancelled");
+      }
+
+      // 2. Update status to cancelled
+      const [updatedOrder] = await tx.update(orders)
+        .set({ status: "cancelled", updatedAt: new Date().toISOString() })
+        .where(eq(orders.id, id))
+        .returning();
+
+      // 3. Restore stock
+      for (const item of order.items) {
+        await tx.update(products)
+          .set({ stock: sql`${products.stock} + ${item.quantity}` })
+          .where(eq(products.id, item.productId));
+      }
+
+      return updatedOrder;
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
   }
 };

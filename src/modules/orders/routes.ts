@@ -10,5 +10,6 @@ router.post("/", authenticate, validate(orderSchema), orderController.createOrde
 router.get("/my", authenticate, orderController.getMyOrders);
 router.get("/admin", authenticate, authorize(["admin"]), orderController.getAllOrders);
 router.patch("/admin/:id", authenticate, authorize(["admin"]), orderController.updateOrderStatus);
+router.patch("/my/:id/cancel", authenticate, orderController.cancelOrder);
 
 export default router;
