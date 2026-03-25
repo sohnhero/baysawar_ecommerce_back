@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, not, inArray } from "drizzle-orm";
 import { db } from "../../lib/db";
 import { carts, cartItems } from "../../db/schema";
 
@@ -16,28 +16,39 @@ export const getOrCreateCart = async (userId: string) => {
 };
 
 export const getCart = async (userId: string) => {
-  console.log(`[CartService] getCart called for user: ${userId}`);
   const cart = await getOrCreateCart(userId);
-  const items = await db.query.cartItems.findMany({
+  return await db.query.cartItems.findMany({
     where: eq(cartItems.cartId, cart.id),
     with: {
       product: true,
     },
   });
-  console.log(`[CartService] getCart returning ${items.length} items for user: ${userId}`);
-  return items;
 };
 
 export const syncCart = async (userId: string, items: { productId: string; quantity: number }[]) => {
   const cart = await getOrCreateCart(userId);
-  console.log(`[CartService] Syncing cart for user ${userId}, items in request: ${items.length}`);
 
   // Use a transaction to ensure atomicity
   return await db.transaction(async (tx) => {
-    // Merging logic: 
-    // For each item in the request, we additive-merge with what's in the DB
-    // unless the quantities are specific (we'll just use the request quality as the "latest")
-    
+    // 1. Delete items that are NO LONGER in the request items
+    const productIds = items.map(i => i.productId);
+    if (productIds.length > 0) {
+      await tx.delete(cartItems)
+        .where(
+          and(
+            eq(cartItems.cartId, cart.id),
+            not(inArray(cartItems.productId, productIds))
+          )
+        );
+    } else {
+      // If items array is empty, it means we WANT to clear the cart in a SYNC context.
+      // Wait! If it's a "merge" on login, we send an empty list?
+      // No, onLogin fetches the server cart first and merges. So it will send the full merged list.
+      // So if items is empty, we should delete EVERYTHING for this cart.
+      await tx.delete(cartItems).where(eq(cartItems.cartId, cart.id));
+    }
+
+    // 2. Update/Insert the remaining items
     for (const item of items) {
       const existing = await tx.query.cartItems.findFirst({
         where: and(
@@ -47,10 +58,6 @@ export const syncCart = async (userId: string, items: { productId: string; quant
       });
 
       if (existing) {
-        // If it exists, we take the MAX of the quantities, or just the incoming one?
-        // Usually, if syncing from guest to user, we might want to Add them.
-        // But if syncing a refresh, we want the incoming.
-        // Let's go with incoming for simplicity, it matches "sync" behavior.
         await tx.update(cartItems)
           .set({ 
             quantity: item.quantity, 
@@ -66,14 +73,11 @@ export const syncCart = async (userId: string, items: { productId: string; quant
       }
     }
 
-    const allItems = await tx.query.cartItems.findMany({
+    return await tx.query.cartItems.findMany({
       where: eq(cartItems.cartId, cart.id),
       with: {
         product: true,
       },
     });
-    
-    console.log(`[CartService] Sync complete. Total items in DB for user ${userId}: ${allItems.length}`);
-    return allItems;
   });
 };
