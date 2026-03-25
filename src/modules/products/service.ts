@@ -1,6 +1,6 @@
 import { eq, and, ilike, sql } from "drizzle-orm";
 import { db } from "../../lib/db";
-import { products, categories } from "../../db/schema";
+import { products, categories, flashSales } from "../../db/schema";
 
 export const getAllProducts = async (filters: any) => {
   const { category, search, minPrice, maxPrice } = filters;
@@ -36,7 +36,7 @@ export const getAllProducts = async (filters: any) => {
 
 export const getProductById = async (id: string) => {
   const product = await db.query.products.findFirst({
-    where: eq(products.id, id),
+    where: (products, { eq }) => eq(products.id, id),
     with: {
       category: true,
       artisan: true,
@@ -57,7 +57,7 @@ export const getProductById = async (id: string) => {
 
 export const getProductsByCategory = async (categoryId: string) => {
   return await db.query.products.findMany({
-    where: eq(products.categoryId, categoryId),
+    where: (products, { eq }) => eq(products.categoryId, categoryId),
     with: {
       category: true,
       artisan: true,
@@ -69,9 +69,9 @@ export const createProduct = async (data: any) => {
   const slug = data.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
   
   // If category is a slug, find the ID
-  if (data.category && typeof data.category === 'string' && data.category.length > 20 === false) {
+  if (data.category && typeof data.category === 'string' && data.category.length <= 20) {
      const cat = await db.query.categories.findFirst({
-         where: eq(categories.slug, data.category)
+         where: (categories, { eq }) => eq(categories.slug, data.category)
      });
      if (cat) {
          data.categoryId = cat.id;
@@ -96,24 +96,56 @@ export const updateProduct = async (id: string, data: any) => {
   }
 
   // If category is a string mapped to ID or slug
-  if (data.category && typeof data.category === 'string' && data.category.length > 20 === false) {
+  if (data.category && typeof data.category === 'string' && data.category.length <= 20) {
      const cat = await db.query.categories.findFirst({
-         where: eq(categories.slug, data.category)
+         where: (categories, { eq }) => eq(categories.slug, data.category)
      });
      if (cat) {
          data.categoryId = cat.id;
      }
   }
 
-  const { category, id: _, createdAt, ...updateData } = data;
-
-  const result = await db.update(products).set({
-    ...updateData,
-    ...(slug ? { slug } : {}),
-    updatedAt: new Date().toISOString(),
-  }).where(eq(products.id, id)).returning();
+  // Extract only fields that exist in the products table to avoid Drizzle errors
+  const productFields = [
+    'name', 'slug', 'description', 'longDescription', 'price', 'discountPrice', 
+    'categoryId', 'artisanId', 'image', 'images', 'stock', 'featured', 
+    'active', 'rating', 'reviewCount', 'badge', 'tags'
+  ];
   
-  return result[0];
+  const updateData: any = {};
+  productFields.forEach(field => {
+    if (data[field] !== undefined) {
+      updateData[field] = data[field];
+    }
+  });
+
+  if (slug) updateData.slug = slug;
+  updateData.updatedAt = new Date().toISOString();
+
+  return await db.transaction(async (tx) => {
+    const result = await tx.update(products)
+      .set(updateData)
+      .where(eq(products.id, id))
+      .returning();
+
+    if (data.price !== undefined) {
+      const newPrice = parseFloat(data.price.toString());
+      if (!isNaN(newPrice)) {
+        const flashSaleItems = await tx.query.flashSales.findMany({
+          where: (flashSales, { eq }) => eq(flashSales.productId, id)
+        });
+
+        for (const item of flashSaleItems) {
+          const newFlashPrice = (newPrice * (1 - item.discountPercent / 100)).toFixed(2);
+          await tx.update(flashSales)
+            .set({ flashPrice: newFlashPrice })
+            .where(eq(flashSales.id, item.id));
+        }
+      }
+    }
+
+    return result[0];
+  });
 };
 
 export const deleteProduct = async (id: string) => {

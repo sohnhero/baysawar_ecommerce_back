@@ -232,16 +232,28 @@ async function main() {
   await db.insert(schema.flashSales).values(flashSaleItems).onConflictDoNothing();
   console.log("Flash Sale Items seeded.");
 
-  // 6. Admin User
-  const adminPassword = await bcrypt.hash("BaysawarrAdmin!", 10);
+  // 6. Admin Users
+  const adminPassword1 = await bcrypt.hash("BaysawarrAdmin!", 10);
   await db.insert(schema.users).values({
     id: uuidv4(),
     name: "Admin Baysawarr",
     email: "admin@baysawarr.com",
-    password: adminPassword,
+    password: adminPassword1,
     role: "admin",
   }).onConflictDoNothing();
-  console.log("Admin user seeded. (admin@baysawarr.com / BaysawarrAdmin!)");
+
+  const adminPassword2 = await bcrypt.hash("Adminshop@2026", 10);
+  await db.insert(schema.users).values({
+    id: uuidv4(),
+    name: "Admin Fabira",
+    email: "adminshop@fabiratrading.com",
+    password: adminPassword2,
+    role: "admin",
+  }).onConflictDoNothing();
+
+  console.log("Admin users seeded:");
+  console.log("- admin@baysawarr.com / BaysawarrAdmin!");
+  console.log("- adminshop@fabiratrading.com / Adminshop@2026");
 
   console.log("Seeding completed successfully.");
   process.exit(0);
