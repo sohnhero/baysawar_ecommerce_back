@@ -17,7 +17,7 @@ export const getDashboardStats = async (timeRange: string = '30d') => {
   
   const [totalRevenue] = await db.select({ 
     total: sql<string>`sum(${orders.totalAmount})` 
-  }).from(orders).where(timeFilter);
+  }).from(orders).where(sql`${timeFilter} AND ${orders.status} = 'delivered'`);
 
   // Get recent orders (always last 5, regardless of filter for UI density)
   const recentOrders = await db.query.orders.findMany({
