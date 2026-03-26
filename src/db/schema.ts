@@ -151,7 +151,7 @@ export const orderItems = pgTable("order_items", {
 			columns: [table.productId],
 			foreignColumns: [products.id],
 			name: "order_items_product_id_products_id_fk"
-		}),
+		}).onDelete("cascade"),
 ]);
 
 export const flashSaleCampaigns = pgTable("flash_sale_campaigns", {
