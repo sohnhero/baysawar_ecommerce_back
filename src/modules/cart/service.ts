@@ -41,14 +41,33 @@ export const syncCart = async (userId: string, items: { productId: string; quant
     quantity,
   }));
 
+  const productIds = uniqueItems.map(i => i.productId);
+
   // 2. Use a transaction to ensure atomicity
   return await db.transaction(async (tx) => {
-    // a. Delete all current items for this cart
-    await tx.delete(cartItems).where(eq(cartItems.cartId, cart.id));
-
-    // b. Insert the unique items from the frontend in a single bulk operation
+    // a. Update or Insert (Upsert) every item in the payload
     if (uniqueItems.length > 0) {
-      await tx.insert(cartItems).values(uniqueItems);
+      for (const item of uniqueItems) {
+        await tx.insert(cartItems)
+          .values(item)
+          .onConflictDoUpdate({
+            target: [cartItems.cartId, cartItems.productId],
+            set: { quantity: item.quantity, updatedAt: new Date().toISOString() }
+          });
+      }
+    }
+
+    // b. Delete any items that are NOT in the current frontend payload
+    if (productIds.length > 0) {
+      await tx.delete(cartItems).where(
+        and(
+          eq(cartItems.cartId, cart.id),
+          not(inArray(cartItems.productId, productIds))
+        )
+      );
+    } else {
+      // If empty payload, clear entire cart
+      await tx.delete(cartItems).where(eq(cartItems.cartId, cart.id));
     }
 
     // c. Return the fresh state
