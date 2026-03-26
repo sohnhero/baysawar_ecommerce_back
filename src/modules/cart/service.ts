@@ -28,24 +28,30 @@ export const getCart = async (userId: string) => {
 export const syncCart = async (userId: string, items: { productId: string; quantity: number }[]) => {
   const cart = await getOrCreateCart(userId);
 
-  // Use a transaction to ensure atomicity
+  // 1. Deduplicate items to prevent unique constraint violations
+  const mergedItemsMap = new Map<string, number>();
+  for (const item of items) {
+    const current = mergedItemsMap.get(item.productId) || 0;
+    mergedItemsMap.set(item.productId, current + item.quantity);
+  }
+
+  const uniqueItems = Array.from(mergedItemsMap.entries()).map(([productId, quantity]) => ({
+    cartId: cart.id,
+    productId,
+    quantity,
+  }));
+
+  // 2. Use a transaction to ensure atomicity
   return await db.transaction(async (tx) => {
-    // 1. Delete all current items for this cart to ensure absolute consistency
+    // a. Delete all current items for this cart
     await tx.delete(cartItems).where(eq(cartItems.cartId, cart.id));
 
-    // 2. Insert the current items from the frontend
-    if (items.length > 0) {
-      // Perform sequential inserts within transaction or use bulk insert if supported
-      for (const item of items) {
-        await tx.insert(cartItems).values({
-          cartId: cart.id,
-          productId: item.productId,
-          quantity: item.quantity,
-        });
-      }
+    // b. Insert the unique items from the frontend in a single bulk operation
+    if (uniqueItems.length > 0) {
+      await tx.insert(cartItems).values(uniqueItems);
     }
 
-    // 3. Return the fresh state
+    // c. Return the fresh state
     return await tx.query.cartItems.findMany({
       where: eq(cartItems.cartId, cart.id),
       with: {
