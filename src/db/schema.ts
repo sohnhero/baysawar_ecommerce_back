@@ -166,6 +166,15 @@ export const flashSaleCampaigns = pgTable("flash_sale_campaigns", {
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
 });
 
+export const newsletterSubscriptions = pgTable("newsletter_subscriptions", {
+	id: uuid("id").defaultRandom().primaryKey().notNull(),
+	email: text("email").notNull(),
+	active: boolean("active").default(true).notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	unique("newsletter_email_unique").on(table.email),
+]);
+
 export const flashSales = pgTable("flash_sales", {
 	id: uuid("id").defaultRandom().primaryKey().notNull(),
 	campaignId: uuid("campaign_id").notNull(),

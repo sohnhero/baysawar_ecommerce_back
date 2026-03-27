@@ -14,6 +14,8 @@ import userRoutes from './modules/users/routes';
 import adminRoutes from './modules/admin/routes';
 import uploadRoutes from './modules/upload/routes';
 import cartRoutes from './modules/cart/routes';
+import newsletterRoutes from './modules/newsletter/routes';
+
 
 dotenv.config();
 
@@ -41,6 +43,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/cart', cartRoutes);
+app.use('/api/newsletter', newsletterRoutes);
+
 
 app.get('/api/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'OK', message: 'Baysawarr Backend is running' });

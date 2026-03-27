@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { db } from "../../lib/db";
 import { orders, orderItems, products } from "../../db/schema";
 import { eq, sql, and } from "drizzle-orm";
+import { EmailService } from "../../lib/email";
+
 
 export const createOrder = async (req: Request, res: Response) => {
   try {
@@ -49,7 +51,21 @@ export const createOrder = async (req: Request, res: Response) => {
       return newOrder;
     });
 
+    // Send order confirmation email
+    try {
+      const orderWithUser = await db.query.orders.findFirst({
+        where: eq(orders.id, result.id),
+        with: { user: true, items: { with: { product: true } } }
+      });
+      if (orderWithUser && orderWithUser.user) {
+        await EmailService.sendOrderConfirmation(orderWithUser.user.email, orderWithUser, orderWithUser.items);
+      }
+    } catch (e) {
+      console.error("Failed to send order confirmation email:", e);
+    }
+
     res.status(201).json(result);
+
   } catch (error: any) {
     console.error("Order Creation Detailed Error:", error);
     const msg = error.message || "Unknown error during order creation";
@@ -109,6 +125,20 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
       .set({ status, updatedAt: new Date().toISOString() })
       .where(eq(orders.id, id))
       .returning();
+
+    // Send status update email
+    try {
+      const orderWithUser = await db.query.orders.findFirst({
+        where: eq(orders.id, id),
+        with: { user: true }
+      });
+      if (orderWithUser && orderWithUser.user) {
+        await EmailService.sendOrderStatusUpdate(orderWithUser.user.email, orderWithUser);
+      }
+    } catch (e) {
+      console.error("Failed to send status update email:", e);
+    }
+
     res.json(result[0]);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -154,6 +184,19 @@ export const cancelOrder = async (req: Request, res: Response) => {
 
       return updatedOrder;
     });
+
+    // Send cancellation email to admin
+    try {
+      const orderWithUser = await db.query.orders.findFirst({
+        where: eq(orders.id, result.id),
+        with: { user: true }
+      });
+      if (orderWithUser) {
+        await EmailService.sendOrderCancelledAdmin(orderWithUser);
+      }
+    } catch (e) {
+      console.error("Failed to send cancellation email to admin:", e);
+    }
 
     res.json(result);
   } catch (error: any) {

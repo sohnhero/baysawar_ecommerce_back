@@ -3,6 +3,8 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { db } from "../../lib/db";
 import { users } from "../../db/schema";
+import { EmailService } from "../../lib/email";
+
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
 
@@ -29,6 +31,14 @@ export const register = async (data: any) => {
   }).returning();
 
   const { password: _, ...userWithoutPassword } = newUser;
+
+  // Send welcome email
+  try {
+    await EmailService.sendWelcome(email, name);
+  } catch (e) {
+    console.error("Failed to send welcome email:", e);
+  }
+
   return userWithoutPassword;
 };
 
