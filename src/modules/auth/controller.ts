@@ -23,8 +23,8 @@ export const login = async (req: Request, res: Response) => {
 export const getMe = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
-    const user = await authService.getUserById(userId);
-    res.status(200).json({ user });
+    const { user, token } = await authService.getUserWithToken(userId);
+    res.status(200).json({ user, token });
   } catch (error: any) {
     res.status(404).json({ error: error.message });
   }

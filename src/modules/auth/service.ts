@@ -91,3 +91,20 @@ export const getUserById = async (id: string) => {
   const { password: _, ...userWithoutPassword } = user;
   return userWithoutPassword;
 };
+
+export const getUserWithToken = async (id: string) => {
+  const user = await db.query.users.findFirst({
+    where: eq(users.id, id),
+  });
+
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  const token = jwt.sign({ id: user.id, email: user.email, role: user.role }, JWT_SECRET, {
+    expiresIn: "1d",
+  });
+
+  const { password: _, ...userWithoutPassword } = user;
+  return { user: userWithoutPassword, token };
+};
