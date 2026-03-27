@@ -65,6 +65,16 @@ export const getProductsByCategory = async (categoryId: string) => {
   });
 };
 
+export const getProductsByArtisanId = async (artisanId: string) => {
+  return await db.query.products.findMany({
+    where: (products, { eq }) => eq(products.artisanId, artisanId),
+    with: {
+      category: true,
+      artisan: true,
+    },
+  });
+};
+
 export const createProduct = async (data: any) => {
   const slug = data.name.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '');
   

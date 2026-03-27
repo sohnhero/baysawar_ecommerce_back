@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
 import { db } from "../../lib/db";
-import { orders, orderItems, products } from "../../db/schema";
-import { eq, sql, and } from "drizzle-orm";
+import { orders, orderItems, products, artisans as artisansTable } from "../../db/schema";
+import { eq, sql, and, inArray } from "drizzle-orm";
 import { EmailService } from "../../lib/email";
+import * as artisanService from "../artisans/service";
 
 
 export const createOrder = async (req: Request, res: Response) => {
@@ -204,5 +205,98 @@ export const cancelOrder = async (req: Request, res: Response) => {
     res.json(result);
   } catch (error: any) {
     res.status(400).json({ error: error.message });
+  }
+};
+
+export const getSellerOrders = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const artisanLink = await artisanService.getArtisanByUserId(userId);
+    if (!artisanLink) {
+      return res.status(404).json({ error: "Profil vendeur non trouvé" });
+    }
+
+    const artisanOrders = await db.query.orders.findMany({
+      where: (orders, { exists }) => exists(
+        db.select().from(orderItems)
+          .innerJoin(products, eq(orderItems.productId, products.id))
+          .where(and(
+            eq(orderItems.orderId, orders.id),
+            eq(products.artisanId, artisanLink.id)
+          ))
+      ),
+      with: {
+        items: {
+          with: {
+            product: true
+          }
+        },
+        user: true
+      },
+      orderBy: (orders, { desc }) => [desc(orders.createdAt)],
+    });
+
+    const filteredOrders = artisanOrders.map(order => ({
+      ...order,
+      items: order.items.filter(item => (item.product as any).artisanId === artisanLink.id)
+    }));
+
+    res.status(200).json(filteredOrders);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+export const updateSellerOrderStatus = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params as { id: string };
+    const { status } = req.body;
+    const userId = (req as any).user.id;
+    const artisanLink = await artisanService.getArtisanByUserId(userId);
+
+    if (!artisanLink) {
+      return res.status(404).json({ error: "Profil vendeur non trouvé" });
+    }
+
+    // Check if seller owns at least one item in this order
+    const order = await db.query.orders.findFirst({
+      where: (orders, { eq, and, exists }) => and(
+        eq(orders.id, id),
+        exists(
+          db.select().from(orderItems)
+            .innerJoin(products, eq(orderItems.productId, products.id))
+            .where(and(
+              eq(orderItems.orderId, orders.id),
+              eq(products.artisanId, artisanLink.id)
+            ))
+        )
+      )
+    });
+
+    if (!order) {
+      return res.status(403).json({ error: "Vous n'êtes pas autorisé à modifier cette commande" });
+    }
+
+    const [updated] = await db.update(orders)
+      .set({ status, updatedAt: new Date().toISOString() })
+      .where(eq(orders.id, id))
+      .returning();
+
+    // Send status update email
+    try {
+      const orderWithUser = await db.query.orders.findFirst({
+        where: eq(orders.id, id),
+        with: { user: true }
+      });
+      if (orderWithUser && orderWithUser.user) {
+        await EmailService.sendOrderStatusUpdate(orderWithUser.user.email, orderWithUser);
+      }
+    } catch (e) {
+      console.error("Failed to send status update email:", e);
+    }
+
+    res.json(updated);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 };

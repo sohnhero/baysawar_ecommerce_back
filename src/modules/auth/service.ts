@@ -8,8 +8,10 @@ import { EmailService } from "../../lib/email";
 
 const JWT_SECRET = process.env.JWT_SECRET || "fallback-secret";
 
+import * as artisanService from "../artisans/service";
+
 export const register = async (data: any) => {
-  const { email, password, name, phone, address } = data;
+  const { email, password, name, phone, address, isSeller, sellerData } = data;
 
   const existingUser = await db.query.users.findFirst({
     where: eq(users.email, email),
@@ -29,6 +31,18 @@ export const register = async (data: any) => {
     address,
     role: "customer",
   }).returning();
+
+  // If user wants to be a seller, create the artisan profile as 'pending'
+  if (isSeller && sellerData) {
+    await artisanService.createArtisan({
+      userId: newUser.id,
+      name: sellerData.name || name,
+      specialty: sellerData.specialty,
+      location: sellerData.location || address,
+      bio: sellerData.bio,
+      image: sellerData.image || "https://images.unsplash.com/photo-1452421822248-d4c2b47f0c81?w=400&auto=format&fit=crop", // placeholder
+    });
+  }
 
   const { password: _, ...userWithoutPassword } = newUser;
 

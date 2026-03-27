@@ -61,6 +61,7 @@ export const products = pgTable("products", {
 
 export const artisans = pgTable("artisans", {
 	id: uuid("id").defaultRandom().primaryKey().notNull(),
+	userId: uuid("user_id"),
 	name: text("name").notNull(),
 	slug: text("slug").notNull(),
 	specialty: text("specialty").notNull(),
@@ -70,10 +71,18 @@ export const artisans = pgTable("artisans", {
 	since: integer("since").notNull(),
 	rating: numeric("rating", { precision: 3, scale: 2 }).default('0.00'),
 	productCount: integer("product_count").default(0),
+	status: text("status").default('approved').notNull(),
+	adminNotes: text("admin_notes"),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
+	foreignKey({
+		columns: [table.userId],
+		foreignColumns: [users.id],
+		name: "artisans_user_id_users_id_fk"
+	}).onDelete("cascade"),
 	unique("artisans_slug_unique").on(table.slug),
+	unique("artisans_user_id_unique").on(table.userId),
 ]);
 
 export const reviews = pgTable("reviews", {
@@ -245,8 +254,12 @@ export const flashSalesRelations = relations(flashSales, ({ one }) => ({
 }));
 
 // Relations
-export const usersRelations = relations(users, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
 	orders: many(orders),
+	artisan: one(artisans, {
+		fields: [users.id],
+		references: [artisans.userId],
+	}),
 }));
 
 export const productsRelations = relations(products, ({ one, many }) => ({
@@ -263,8 +276,12 @@ export const productsRelations = relations(products, ({ one, many }) => ({
 	reviews: many(reviews),
 }));
 
-export const artisansRelations = relations(artisans, ({ many }) => ({
+export const artisansRelations = relations(artisans, ({ one, many }) => ({
 	products: many(products),
+	user: one(users, {
+		fields: [artisans.userId],
+		references: [users.id],
+	}),
 }));
 
 export const categoriesRelations = relations(categories, ({ many }) => ({
