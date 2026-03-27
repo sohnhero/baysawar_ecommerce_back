@@ -59,7 +59,7 @@ export const createArtisan = async (data: any) => {
 };
 
 export const updateArtisan = async (id: string, data: any) => {
-  const { name, specialty, bio } = data;
+  const { name, specialty, bio, location, image } = data;
   const slug = name ? name.toLowerCase().split(' ').join('-').replace(/[^\w-]/g, '') : undefined;
   
   const [updated] = await db.update(artisans)
@@ -68,6 +68,8 @@ export const updateArtisan = async (id: string, data: any) => {
       ...(slug && { slug }),
       ...(specialty && { specialty }),
       ...(bio && { bio }),
+      ...(location && { location }),
+      ...(image && { image }),
       updatedAt: new Date().toISOString()
     })
     .where(eq(artisans.id, id))
