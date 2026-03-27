@@ -59,6 +59,9 @@ export const register = async (data: any) => {
 export const login = async (email: string, password: string) => {
   const user = await db.query.users.findFirst({
     where: eq(users.email, email),
+    with: {
+      artisan: true,
+    },
   });
 
   if (!user || !user.password) {
@@ -82,6 +85,9 @@ export const login = async (email: string, password: string) => {
 export const getUserById = async (id: string) => {
   const user = await db.query.users.findFirst({
     where: eq(users.id, id),
+    with: {
+      artisan: true,
+    },
   });
 
   if (!user) {
@@ -95,6 +101,9 @@ export const getUserById = async (id: string) => {
 export const getUserWithToken = async (id: string) => {
   const user = await db.query.users.findFirst({
     where: eq(users.id, id),
+    with: {
+      artisan: true,
+    },
   });
 
   if (!user) {
