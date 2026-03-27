@@ -3,12 +3,17 @@ import { db } from "../../lib/db";
 import { newsletterSubscriptions } from "../../db/schema";
 import { eq } from "drizzle-orm";
 import { EmailService } from "../../lib/email";
+import { z } from "zod";
+
+const emailSchema = z.string().email("Format d'e-mail invalide");
 
 export const subscribe = async (req: Request, res: Response) => {
   try {
-    const { email } = req.body;
-    if (!email) {
-      return res.status(400).json({ error: "Email is required" });
+    const { email: rawEmail } = req.body;
+    const { success, data: email, error } = emailSchema.safeParse(rawEmail);
+
+    if (!success) {
+      return res.status(400).json({ error: error.issues[0].message });
     }
 
     const [existing] = await db.select()
