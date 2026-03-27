@@ -185,17 +185,20 @@ export const cancelOrder = async (req: Request, res: Response) => {
       return updatedOrder;
     });
 
-    // Send cancellation email to admin
+    // Send cancellation emails
     try {
       const orderWithUser = await db.query.orders.findFirst({
         where: eq(orders.id, result.id),
         with: { user: true }
       });
-      if (orderWithUser) {
+      if (orderWithUser && orderWithUser.user) {
+        // Send status update to client (Cancelled)
+        await EmailService.sendOrderStatusUpdate(orderWithUser.user.email, orderWithUser);
+        // Alert admin about the cancellation
         await EmailService.sendOrderCancelledAdmin(orderWithUser);
       }
     } catch (e) {
-      console.error("Failed to send cancellation email to admin:", e);
+      console.error("Failed to send cancellation emails:", e);
     }
 
     res.json(result);
