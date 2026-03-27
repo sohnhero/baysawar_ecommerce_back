@@ -1,6 +1,10 @@
 import { Resend } from 'resend';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const apiKey = process.env.RESEND_API_KEY;
+if (!apiKey) {
+  console.error("❌ RESEND_API_KEY is missing from environment variables!");
+}
+const resend = new Resend(apiKey || 're_dummy_key_for_no_crash');
 const fromEmail = process.env.EMAIL_FROM || 'Baysawarr <onboarding@resend.dev>';
 const adminEmail = process.env.ADMIN_EMAIL || 'shopbaysawarr@gmail.com';
 

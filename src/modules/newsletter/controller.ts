@@ -11,9 +11,10 @@ export const subscribe = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Email is required" });
     }
 
-    const existing = await db.query.newsletterSubscriptions.findFirst({
-      where: eq(newsletterSubscriptions.email, email),
-    });
+    const [existing] = await db.select()
+      .from(newsletterSubscriptions)
+      .where(eq(newsletterSubscriptions.email, email))
+      .limit(1);
 
     if (existing) {
       if (existing.active) {
