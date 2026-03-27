@@ -33,3 +33,13 @@ export const deleteReview = async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 };
+export const checkEligibility = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const productId = req.params.productId as string;
+    const canReview = await reviewService.checkReviewEligibility(productId, userId);
+    res.json({ canReview });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};

@@ -24,6 +24,39 @@ export const createReview = async (data: {
   comment: string;
 }) => {
   return await db.transaction(async (tx) => {
+    // 0. Check if the product belongs to the user (if they are a seller)
+    const product = await tx.query.products.findFirst({
+      where: eq(products.id, data.productId),
+    });
+
+    if (!product) throw new Error("Product not found");
+
+    const artisan = await tx.query.artisans.findFirst({
+      where: eq(require("../../db/schema").artisans.userId, data.userId),
+    });
+
+    if (artisan && product.artisanId === artisan.id) {
+      throw new Error("Vous ne pouvez pas noter votre propre produit");
+    }
+
+    // 0.1 Check if user has a delivered order for this product
+    const eligibleOrder = await tx
+      .select({ id: require("../../db/schema").orders.id })
+      .from(require("../../db/schema").orders)
+      .innerJoin(require("../../db/schema").orderItems, eq(require("../../db/schema").orders.id, require("../../db/schema").orderItems.orderId))
+      .where(
+        and(
+          eq(require("../../db/schema").orders.userId, data.userId),
+          eq(require("../../db/schema").orders.status, 'delivered'),
+          eq(require("../../db/schema").orderItems.productId, data.productId)
+        )
+      )
+      .limit(1);
+
+    if (eligibleOrder.length === 0) {
+      throw new Error("Vous devez avoir acheté et reçu ce produit pour laisser un avis");
+    }
+
     // 1. Check if user already reviewed this product
     const existing = await tx.query.reviews.findFirst({
       where: and(eq(reviews.productId, data.productId), eq(reviews.userId, data.userId)),
@@ -68,6 +101,23 @@ export const createReview = async (data: {
 
     return newReview;
   });
+};
+
+export const checkReviewEligibility = async (productId: string, userId: string) => {
+  const eligibleOrder = await db
+    .select({ id: require("../../db/schema").orders.id })
+    .from(require("../../db/schema").orders)
+    .innerJoin(require("../../db/schema").orderItems, eq(require("../../db/schema").orders.id, require("../../db/schema").orderItems.orderId))
+    .where(
+      and(
+        eq(require("../../db/schema").orders.userId, userId),
+        eq(require("../../db/schema").orders.status, 'delivered'),
+        eq(require("../../db/schema").orderItems.productId, productId)
+      )
+    )
+    .limit(1);
+
+  return eligibleOrder.length > 0;
 };
 
 export const deleteReview = async (id: string, userId: string) => {

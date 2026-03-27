@@ -6,6 +6,7 @@ const router = Router();
 
 router.get("/product/:productId", reviewController.getReviews);
 router.post("/", authenticate, reviewController.createReview);
+router.get("/check-eligibility/:productId", authenticate, reviewController.checkEligibility);
 router.delete("/:id", authenticate, reviewController.deleteReview);
 
 export default router;
