@@ -5,10 +5,9 @@ import { authenticate, authorize } from "../../middleware/auth";
 const router = Router();
 
 router.get("/", productController.getAllProducts);
+router.get("/seller", authenticate, authorize(["vendeur", "admin"]), productController.getSellerProducts);
 router.get("/:id", productController.getProductById);
 router.get("/category/:categoryId", productController.getProductsByCategory);
-
-router.get("/seller", authenticate, authorize(["vendeur", "admin"]), productController.getSellerProducts);
 
 // Admin & Seller routes
 router.post("/", authenticate, authorize(["admin", "vendeur"]), productController.createProduct);
