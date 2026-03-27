@@ -22,6 +22,13 @@
       "when": 1774626877353,
       "tag": "0002_purple_morlun",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1774627223341,
+      "tag": "0003_complete_catseye",
+      "breakpoints": true
     }
   ]
 }
