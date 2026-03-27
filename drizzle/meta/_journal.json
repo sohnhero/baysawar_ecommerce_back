@@ -15,6 +15,13 @@
       "when": 1774184340105,
       "tag": "0001_neat_jazinda",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774626877353,
+      "tag": "0002_purple_morlun",
+      "breakpoints": true
     }
   ]
 }
