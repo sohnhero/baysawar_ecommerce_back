@@ -59,8 +59,7 @@ export const updateArtisanStatus = async (req: Request, res: Response) => {
 export const getMyArtisanProfile = async (req: any, res: Response) => {
   try {
     const result = await artisanService.getArtisanByUserId(req.user.id);
-    if (!result) return res.status(404).json({ error: "Profile not found" });
-    res.json(result);
+    res.json(result || null);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
