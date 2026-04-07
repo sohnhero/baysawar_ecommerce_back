@@ -14,7 +14,15 @@ export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
     const { user, token } = await authService.login(email, password);
-    res.status(200).json({ user, token });
+    
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+    });
+
+    res.status(200).json({ user });
   } catch (error: any) {
     res.status(401).json({ error: error.message });
   }
@@ -24,7 +32,15 @@ export const getMe = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
     const { user, token } = await authService.getUserWithToken(userId);
-    res.status(200).json({ user, token });
+    
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "strict",
+      maxAge: 24 * 60 * 60 * 1000, // 1 day
+    });
+
+    res.status(200).json({ user });
   } catch (error: any) {
     res.status(404).json({ error: error.message });
   }
