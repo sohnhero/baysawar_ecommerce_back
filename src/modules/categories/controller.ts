@@ -8,9 +8,7 @@ export const getAllCategories = async (req: Request, res: Response) => {
     const result = await db.query.categories.findMany({
       orderBy: (categories, { asc }) => [asc(categories.order)],
       with: {
-        products: {
-          limit: 6
-        },
+        products: true,
       }
     });
 
