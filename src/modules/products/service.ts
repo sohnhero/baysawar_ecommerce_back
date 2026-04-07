@@ -1,6 +1,6 @@
 import { eq, and, ilike, sql } from "drizzle-orm";
 import { db } from "../../lib/db";
-import { products, categories, flashSales } from "../../db/schema";
+import { products, categories, flashSales, orderItems, wishlist } from "../../db/schema";
 
 export const getAllProducts = async (filters: any) => {
   const { category, search, minPrice, maxPrice } = filters;
@@ -160,4 +160,46 @@ export const updateProduct = async (id: string, data: any) => {
 
 export const deleteProduct = async (id: string) => {
   return await db.delete(products).where(eq(products.id, id)).returning();
+};
+
+export const getProductHighlights = async () => {
+  // 1. Most Ordered (by quantity)
+  const mostOrderedQuery = await db.select({
+    productId: orderItems.productId,
+    totalQuantity: sql<number>`sum(${orderItems.quantity})`.as('total_quantity'),
+  })
+  .from(orderItems)
+  .groupBy(orderItems.productId)
+  .orderBy(sql`total_quantity desc`)
+  .limit(1);
+
+  // 2. Most Liked (by wishlist count)
+  const mostLikedQuery = await db.select({
+    productId: wishlist.productId,
+    totalLikes: sql<number>`count(${wishlist.id})`.as('total_likes'),
+  })
+  .from(wishlist)
+  .groupBy(wishlist.productId)
+  .orderBy(sql`total_likes desc`)
+  .limit(1);
+
+  // Fetch full product details
+  const [orderedProduct] = mostOrderedQuery.length > 0
+    ? await db.query.products.findMany({
+        where: eq(products.id, mostOrderedQuery[0].productId),
+        with: { category: true, artisan: true }
+      })
+    : [];
+
+  const [likedProduct] = mostLikedQuery.length > 0
+    ? await db.query.products.findMany({
+        where: eq(products.id, mostLikedQuery[0].productId),
+        with: { category: true, artisan: true }
+      })
+    : [];
+
+  return {
+    mostOrdered: orderedProduct || null,
+    mostLiked: likedProduct || null
+  };
 };

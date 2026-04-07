@@ -111,3 +111,12 @@ export const deleteProduct = async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const getProductHighlights = async (req: Request, res: Response) => {
+  try {
+    const highlights = await productService.getProductHighlights();
+    res.json(highlights);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+};
