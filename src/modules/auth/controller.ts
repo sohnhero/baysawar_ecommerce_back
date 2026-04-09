@@ -19,7 +19,7 @@ export const login = async (req: Request, res: Response) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
     res.status(200).json({ user });
@@ -37,7 +37,7 @@ export const getMe = async (req: Request, res: Response) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "strict",
-      maxAge: 24 * 60 * 60 * 1000, // 1 day
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
     });
 
     res.status(200).json({ user });
