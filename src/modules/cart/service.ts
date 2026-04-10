@@ -15,14 +15,40 @@ export const getOrCreateCart = async (userId: string) => {
   return cart;
 };
 
+const getActiveFlashPriceMap = async (): Promise<Map<string, string>> => {
+  const now = new Date().toISOString();
+  const activeCampaign = await db.query.flashSaleCampaigns.findFirst({
+    where: (c, { and, eq, lt, gt }) =>
+      and(eq(c.active, true), lt(c.startTime, now), gt(c.endTime, now)),
+    with: { items: true },
+  });
+
+  const map = new Map<string, string>();
+  if (activeCampaign) {
+    for (const item of (activeCampaign as any).items) {
+      map.set(item.productId, item.flashPrice);
+    }
+  }
+  return map;
+};
+
 export const getCart = async (userId: string) => {
   const cart = await getOrCreateCart(userId);
-  return await db.query.cartItems.findMany({
+  const items = await db.query.cartItems.findMany({
     where: eq(cartItems.cartId, cart.id),
-    with: {
-      product: true,
-    },
+    with: { product: true },
   });
+
+  const flashPriceMap = await getActiveFlashPriceMap();
+
+  return items.map((item) => ({
+    ...item,
+    product: {
+      ...item.product,
+      effectivePrice: flashPriceMap.get(item.productId) ?? item.product?.price,
+      flashPrice: flashPriceMap.get(item.productId) ?? null,
+    },
+  }));
 };
 
 export const syncCart = async (userId: string, items: { productId: string; quantity: number }[]) => {
@@ -70,12 +96,20 @@ export const syncCart = async (userId: string, items: { productId: string; quant
       await tx.delete(cartItems).where(eq(cartItems.cartId, cart.id));
     }
 
-    // c. Return the fresh state
-    return await tx.query.cartItems.findMany({
+    // c. Return the fresh state with flash prices
+    const freshItems = await tx.query.cartItems.findMany({
       where: eq(cartItems.cartId, cart.id),
-      with: {
-        product: true,
-      },
+      with: { product: true },
     });
+
+    const flashPriceMap = await getActiveFlashPriceMap();
+    return freshItems.map((item) => ({
+      ...item,
+      product: {
+        ...item.product,
+        effectivePrice: flashPriceMap.get(item.productId) ?? item.product?.price,
+        flashPrice: flashPriceMap.get(item.productId) ?? null,
+      },
+    }));
   });
 };

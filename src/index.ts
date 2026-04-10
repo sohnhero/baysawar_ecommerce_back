@@ -15,6 +15,7 @@ import adminRoutes from './modules/admin/routes';
 import uploadRoutes from './modules/upload/routes';
 import cartRoutes from './modules/cart/routes';
 import newsletterRoutes from './modules/newsletter/routes';
+import paymentRoutes from './modules/payment/routes';
 import cookieParser from 'cookie-parser';
 
 dotenv.config();
@@ -24,7 +25,11 @@ const port = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: [process.env.FRONTEND_URL || 'https://shop.fabiratrading.com', 'http://localhost:3000'],
+  origin: [
+    process.env.FRONTEND_URL || 'https://shop.fabiratrading.com',
+    'http://localhost:3000',
+    'http://localhost:5000',
+  ],
   credentials: true
 }));
 app.use(cookieParser());
@@ -45,6 +50,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/newsletter', newsletterRoutes);
+app.use('/api/payment', paymentRoutes);
 
 
 app.get('/api/health', (req: Request, res: Response) => {

@@ -4,6 +4,7 @@ import { orders, orderItems, products, artisans as artisansTable } from "../../d
 import { eq, sql, and, inArray } from "drizzle-orm";
 import { EmailService } from "../../lib/email";
 import * as artisanService from "../artisans/service";
+import { initiatePayment } from "../payment/service";
 
 
 export const createOrder = async (req: Request, res: Response) => {
@@ -63,6 +64,45 @@ export const createOrder = async (req: Request, res: Response) => {
       }
     } catch (e) {
       console.error("Failed to send order confirmation email:", e);
+    }
+
+    // Initiate Bictorys payment for non-cash orders
+    if (paymentMethod && paymentMethod !== "cod") {
+      try {
+        const user = (req as any).user;
+        const frontendUrl = process.env.BICTORYS_ENV === "test"
+          ? (process.env.BICTORYS_LOCAL_FRONTEND_URL || "http://localhost:5000")
+          : process.env.FRONTEND_URL || "http://localhost:3000";
+        const bictorysResponse = await initiatePayment({
+          merchantReference: result.id,
+          amount: Number(totalAmount),
+          currency: "XOF",
+          country: "SN",
+          successRedirectUrl: `${frontendUrl}/payment-status?status=success&orderId=${result.id}`,
+          errorRedirectUrl: `${frontendUrl}/payment-status?status=error&orderId=${result.id}`,
+          customer: {
+            name: user.name || user.email || "Client",
+            phone: phone.startsWith("+") ? phone : `+221${phone}`,
+            email: user.email,
+          },
+        }, paymentMethod);
+
+        const paymentUrl = bictorysResponse.link || bictorysResponse.checkoutUrl || bictorysResponse.paymentLink;
+        const chargeId = bictorysResponse.chargeId || bictorysResponse.id;
+        await db.update(orders)
+          .set({
+            paymentCheckoutUrl: paymentUrl,
+            paymentTransactionId: chargeId || null,
+            updatedAt: new Date().toISOString(),
+          })
+          .where(eq(orders.id, result.id));
+
+        return res.status(201).json({ ...result, paymentUrl });
+      } catch (e: any) {
+        console.error("Failed to initiate Bictorys payment:", e);
+        // Order is saved — return it without checkout URL, frontend can retry
+        return res.status(201).json({ ...result, paymentError: "Payment initiation failed, please retry." });
+      }
     }
 
     res.status(201).json(result);
