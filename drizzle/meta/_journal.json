@@ -29,6 +29,13 @@
       "when": 1774627223341,
       "tag": "0003_complete_catseye",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1775762139626,
+      "tag": "0004_bouncy_proteus",
+      "breakpoints": true
     }
   ]
 }

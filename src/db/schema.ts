@@ -134,6 +134,8 @@ export const orders = pgTable("orders", {
 	phone: text("phone").notNull(),
 	paymentMethod: text("payment_method").default('cash_on_delivery'),
 	paymentStatus: varchar("payment_status").default('pending'),
+	paymentTransactionId: text("payment_transaction_id"),
+	paymentCheckoutUrl: text("payment_checkout_url"),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
