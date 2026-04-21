@@ -1,6 +1,6 @@
-import { sql, count } from "drizzle-orm";
+import { sql, count, eq } from "drizzle-orm";
 import { db } from "../../lib/db";
-import { orders, products, users, categories, orderItems } from "../../db/schema";
+import { orders, products, users, categories, orderItems, vendorPayouts } from "../../db/schema";
 
 export const getDashboardStats = async (timeRange: string = '30d') => {
   let interval = '30 days';
@@ -104,4 +104,54 @@ export const getDashboardStats = async (timeRange: string = '30d') => {
     salesByCategory,
     topProducts,
   };
+};
+
+export const getVendorStats = async () => {
+  const rows = await db.execute(sql`
+    SELECT
+      a.id,
+      a.name,
+      a.slug,
+      a.specialty,
+      a.location,
+      a.image,
+      a.since,
+      a.status,
+      a.rating,
+      COUNT(DISTINCT p.id)::int AS product_count,
+      COUNT(DISTINCT CASE WHEN o.status = 'delivered' THEN o.id END)::int AS order_count,
+      COALESCE(SUM(CASE WHEN o.status = 'delivered' THEN oi.price * oi.quantity ELSE 0 END), 0)::float AS total_revenue,
+      COALESCE((SELECT SUM(vp.amount) FROM vendor_payouts vp WHERE vp.artisan_id = a.id), 0)::float AS total_paid
+    FROM artisans a
+    LEFT JOIN products p ON p.artisan_id = a.id
+    LEFT JOIN order_items oi ON oi.product_id = p.id
+    LEFT JOIN orders o ON o.id = oi.order_id
+    WHERE a.status = 'approved'
+    GROUP BY a.id
+    ORDER BY total_revenue DESC
+  `);
+  return Array.from(rows);
+};
+
+export const createVendorPayout = async (data: {
+  artisanId: string;
+  amount: number;
+  method: string;
+  notes?: string;
+}) => {
+  const [payout] = await db.insert(vendorPayouts).values({
+    artisanId: data.artisanId,
+    amount: data.amount.toString(),
+    method: data.method,
+    notes: data.notes,
+  }).returning();
+  return payout;
+};
+
+export const getVendorPayouts = async (artisanId?: string) => {
+  return db.query.vendorPayouts.findMany({
+    where: artisanId ? eq(vendorPayouts.artisanId, artisanId) : undefined,
+    with: { artisan: true },
+    orderBy: (vp, { desc }) => [desc(vp.createdAt)],
+  });
 };

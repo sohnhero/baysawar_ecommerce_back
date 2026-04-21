@@ -240,6 +240,23 @@ export const cartItems = pgTable("cart_items", {
 	unique("cart_items_cart_product_unique").on(table.cartId, table.productId),
 ]);
 
+export const vendorPayouts = pgTable("vendor_payouts", {
+	id: uuid("id").defaultRandom().primaryKey().notNull(),
+	artisanId: uuid("artisan_id").notNull(),
+	amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+	currency: text("currency").default("XOF").notNull(),
+	method: text("method").default("wave_money").notNull(),
+	notes: text("notes"),
+	paidAt: timestamp("paid_at", { mode: 'string' }).defaultNow().notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+		columns: [table.artisanId],
+		foreignColumns: [artisans.id],
+		name: "vendor_payouts_artisan_id_fk"
+	}).onDelete("cascade"),
+]);
+
 export const flashSaleCampaignsRelations = relations(flashSaleCampaigns, ({ many }) => ({
 	items: many(flashSales),
 }));
@@ -280,9 +297,17 @@ export const productsRelations = relations(products, ({ one, many }) => ({
 
 export const artisansRelations = relations(artisans, ({ one, many }) => ({
 	products: many(products),
+	payouts: many(vendorPayouts),
 	user: one(users, {
 		fields: [artisans.userId],
 		references: [users.id],
+	}),
+}));
+
+export const vendorPayoutsRelations = relations(vendorPayouts, ({ one }) => ({
+	artisan: one(artisans, {
+		fields: [vendorPayouts.artisanId],
+		references: [artisans.id],
 	}),
 }));
 
