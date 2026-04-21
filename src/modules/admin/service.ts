@@ -1,6 +1,6 @@
 import { sql, count, eq } from "drizzle-orm";
 import { db } from "../../lib/db";
-import { orders, products, users, categories, orderItems, artisans, vendorPayouts } from "../../db/schema";
+import { orders, products, users, categories, orderItems, vendorPayouts } from "../../db/schema";
 
 export const getDashboardStats = async (timeRange: string = '30d') => {
   let interval = '30 days';
@@ -130,7 +130,7 @@ export const getVendorStats = async () => {
     GROUP BY a.id
     ORDER BY total_revenue DESC
   `);
-  return rows.rows;
+  return Array.from(rows);
 };
 
 export const createVendorPayout = async (data: {
