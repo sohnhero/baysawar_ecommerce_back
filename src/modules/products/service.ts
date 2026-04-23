@@ -3,12 +3,16 @@ import { db } from "../../lib/db";
 import { products, categories, flashSales, orderItems, wishlist } from "../../db/schema";
 
 export const getAllProducts = async (filters: any) => {
-  const { category, search, minPrice, maxPrice } = filters;
+  const { category, search, minPrice, maxPrice, seller } = filters;
 
   const whereConditions = [];
 
   if (category) {
     whereConditions.push(eq(products.categoryId, category));
+  }
+
+  if (seller) {
+    whereConditions.push(eq(products.artisanId, seller));
   }
 
   if (search) {
